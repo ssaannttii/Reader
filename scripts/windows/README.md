@@ -39,3 +39,8 @@ scripts\windows\run_piper_demo.bat "Probando otra voz"
 
 El audio se guardará en `runtime/out.wav`. Puedes reproducirlo con cualquier
 player, por ejemplo, doble clic en el Explorador o usando `start runtime\out.wav`.
+
+> 💡 Desde la raíz del repositorio ahora también puedes ejecutar `run_piper_demo.bat`
+> directamente. Ese archivo no duplica la lógica: simplemente reenvía la llamada a
+> `scripts\windows\run_piper_demo.bat`, de modo que cualquier automatización de la UI
+> o tareas futuras siga funcionando sin cambios.
