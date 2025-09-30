@@ -24,10 +24,13 @@ tecnologías libres y de alto rendimiento.
    - Copia el `.onnx` a `assets\voices\es_ES\` (crea la carpeta si no existe).
 4. **Ejecuta la demo por lotes**
    ```bat
-   scripts\windows\run_piper_demo.bat "Hola, esto es una prueba."
+   run_piper_demo.bat "Hola, esto es una prueba."
    ```
    El resultado se guardará en `runtime\out.wav` y podrás abrirlo con el
-   reproductor predeterminado.
+   reproductor predeterminado. Si prefieres mantener los scripts agrupados,
+   sigue disponible `scripts\windows\run_piper_demo.bat` (el nuevo `run_piper_demo.bat`
+   simplemente delega en él para que la UI y futuros flujos de trabajo no se
+   vean afectados).
 
 > ℹ️  Para más opciones (usar archivos de texto, cambiar el modelo con
 > `PIPER_VOICE`, etc.) consulta `scripts/windows/README.md`.
