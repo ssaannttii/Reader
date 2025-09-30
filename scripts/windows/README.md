@@ -13,8 +13,8 @@ usando `-f`.
 ### Requisitos previos
 
 1. **Descargar Piper**
-   - Ve a <https://github.com/rhasspy/piper/releases/latest> y baja el ZIP
-     `piper_windows_amd64`.
+   - Ve a <https://github.com/OHF-Voice/piper1-gpl/releases/latest> y baja el ZIP
+     `piper1-gpl_windows_amd64`.
    - Extrae `piper.exe` en `runtime/piper/` dentro del proyecto.
 2. **Descargar una voz es_ES (22.05 kHz, calidad high)**
    - En la misma página de releases, ubica una voz como
