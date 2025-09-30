@@ -11,12 +11,12 @@ REM    PIPER_VOICE -> Ruta completa al modelo .onnx a usar.
 REM  The script expects Piper and the es_ES voices under runtime/ and assets/.
 REM ------------------------------------------------------------------
 
-set PROJECT_ROOT=%~dp0..\..
-set RUNTIME_DIR=%PROJECT_ROOT%\runtime
-set PIPER_EXE=%RUNTIME_DIR%\piper\piper.exe
-set VOICES_DIR=%PROJECT_ROOT%\assets\voices\es_ES
-set DEFAULT_VOICE=
-set OUTPUT_WAV=%RUNTIME_DIR%\out.wav
+for %%I in ("%~dp0..\..") do set "PROJECT_ROOT=%%~fI"
+set "RUNTIME_DIR=%PROJECT_ROOT%\runtime"
+set "PIPER_EXE=%RUNTIME_DIR%\piper\piper.exe"
+set "VOICES_DIR=%PROJECT_ROOT%\assets\voices\es_ES"
+set "DEFAULT_VOICE="
+set "OUTPUT_WAV=%RUNTIME_DIR%\out.wav"
 
 if not exist "%PIPER_EXE%" (
   echo [ERROR] Piper no encontrado en %PIPER_EXE%.
