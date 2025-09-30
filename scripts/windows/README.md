@@ -12,10 +12,12 @@ usando `-f`.
 
 ### Requisitos previos
 
-1. **Descargar Piper**
-   - Ve a <https://github.com/OHF-Voice/piper1-gpl/releases/latest> y baja el ZIP
-     `piper1-gpl_windows_amd64`.
-   - Extrae `piper.exe` en `runtime/piper/` dentro del proyecto.
+1. **Instalar Piper**
+   - La release más reciente en <https://github.com/OHF-Voice/piper1-gpl/releases/latest>
+     (comprobada manualmente) ya no publica un ZIP con binario para Windows.
+   - Ejecuta `python -m pip install --upgrade piper-tts` (puede ser en un entorno
+     virtual) y copia `piper.exe` desde la carpeta `Scripts/` del entorno a
+     `runtime/piper/` dentro del proyecto.
 2. **Descargar una voz es_ES (22.05 kHz, calidad high)**
    - En la misma página de releases, ubica una voz como
      `es_ES-carlfm-high.onnx` o `es_ES-aisa-high.onnx`.
