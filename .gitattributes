@@ -1,0 +1,8 @@
+* text=auto
+*.ps1 eol=crlf
+*.bat eol=crlf
+*.wav binary
+*.onnx binary
+*.onnx.json text
+*.pdf binary
+*.epub binary

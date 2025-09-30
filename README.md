@@ -90,6 +90,19 @@ cargo tauri dev
 Mientras el frontend está en desarrollo, puedes seguir usando Piper mediante
 el script por lotes o directamente vía CLI.
 
+## Windows Quickstart
+
+1. Ejecuta `scripts\windows\dev_check.ps1` en PowerShell. El script instalará
+   dependencias clave, descargará voces españolas y generará un audio de prueba
+   con Piper.
+2. Lanza el modo desarrollo con `cargo tauri dev`.
+3. Genera los archivos de muestra ejecutando `python scripts/py/generate_samples.py`
+   y, desde la pestaña **Biblioteca**, importa `samples/sample.pdf` o
+   `samples/sample.epub`.
+4. Añade el documento al **Lector** y reproduce al menos dos párrafos con la
+   voz seleccionada.
+5. Usa el menú de exportación para guardar el resultado en WAV o MP3.
+
 ## Estructura de carpetas
 ```
 reader/

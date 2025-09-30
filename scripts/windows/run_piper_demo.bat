@@ -1,98 +1,70 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM ------------------------------------------------------------------
-REM  Piper quickstart helper for Windows.
-REM  Usage:
-REM    run_piper_demo.bat "Texto a locutar"
-REM    run_piper_demo.bat -f path\al\archivo.txt
-REM  Variables opcionales:
-REM    PIPER_VOICE -> Ruta completa al modelo .onnx a usar.
-REM  The script expects Piper and the es_ES voices under runtime/ and assets/.
-REM ------------------------------------------------------------------
+chcp 65001 >nul
 
-set PROJECT_ROOT=%~dp0..\..
-set RUNTIME_DIR=%PROJECT_ROOT%\runtime
-set PIPER_EXE=%RUNTIME_DIR%\piper\piper.exe
-set VOICES_DIR=%PROJECT_ROOT%\assets\voices\es_ES
-set DEFAULT_VOICE=
-set OUTPUT_WAV=%RUNTIME_DIR%\out.wav
+set SCRIPT_DIR=%~dp0
+set REPO_ROOT=%SCRIPT_DIR%..\..
+set DEFAULT_VOICE=%REPO_ROOT%\assets\voices\es_ES\es_ES-carlfm-x_low.onnx
+set OUTPUT=%REPO_ROOT%\runtime\out.wav
+set PIPER_BIN=%REPO_ROOT%\runtime\piper\piper.exe
 
-if not exist "%PIPER_EXE%" (
-  echo [ERROR] Piper no encontrado en %PIPER_EXE%.
-  echo         Instala la rueda con: python -m pip install --upgrade piper-tts
-  echo         y copia piper.exe desde la carpeta Scripts\ de tu Python a runtime\piper\
-  exit /b 1
-)
-
-if not exist "%VOICES_DIR%" (
-  echo [ERROR] No se encuentra la carpeta de voces:
-  echo         %VOICES_DIR%
-  echo         Crea la carpeta y coloca allí al menos un modelo es_ES (.onnx).
-  exit /b 1
-)
-
-for %%F in ("%VOICES_DIR%\*.onnx") do (
-  set DEFAULT_VOICE=%%~fF
-  goto voice_found
-)
-
-echo [ERROR] No se encontró ninguna voz .onnx en %VOICES_DIR%.
-echo         Descarga una voz es_ES de 22.05 kHz (calidad high) y colócala allí.
-exit /b 1
-
-:voice_found
-
-if not "%PIPER_VOICE%"=="" (
-  if exist "%PIPER_VOICE%" (
-    set DEFAULT_VOICE=%PIPER_VOICE%
-  ) else (
-    echo [WARN] Ignorando PIPER_VOICE, no se encontró "%PIPER_VOICE%".
-  )
-)
-
-echo [INFO] Usando voz: %DEFAULT_VOICE%
-
-set INPUT_TEXT=
-set INPUT_FILE=
-
-if /i "%1"=="-f" (
-  if "%2"=="" (
-    echo [ERROR] Debes indicar un archivo de entrada tras -f.
+if "%~1"=="" (
+    echo Uso: %~nx0 "Texto a sintetizar"
+    echo Opciones: --voice=path\al\modelo.onnx --out=path\salida.wav --sentence-break=550 --length-scale=1.0 --noise-scale=0.5 --noise-w=0.9
     exit /b 1
-  )
-  if not exist "%2" (
-    echo [ERROR] No puedo encontrar "%2".
-    exit /b 1
-  )
-  set INPUT_FILE=%~f2
-) else if not "%1"=="" (
-  set INPUT_TEXT=%~1
+)
+
+set TEXT=%~1
+shift
+
+:parse_args
+if "%~1"=="" goto args_done
+for /f "tokens=1,2 delims==" %%A in ("%~1") do (
+    set KEY=%%A
+    set VALUE=%%B
+)
+if /i "!KEY!"=="--voice" set DEFAULT_VOICE=!VALUE!
+if /i "!KEY!"=="--out" set OUTPUT=!VALUE!
+if /i "!KEY!"=="--sentence-break" set SENTENCE_BREAK=!VALUE!
+if /i "!KEY!"=="--length-scale" set LENGTH_SCALE=!VALUE!
+if /i "!KEY!"=="--noise-scale" set NOISE_SCALE=!VALUE!
+if /i "!KEY!"=="--noise-w" set NOISE_W=!VALUE!
+shift
+goto parse_args
+
+:args_done
+if not defined SENTENCE_BREAK set SENTENCE_BREAK=550
+if not defined LENGTH_SCALE set LENGTH_SCALE=1.0
+if not defined NOISE_SCALE set NOISE_SCALE=0.5
+if not defined NOISE_W set NOISE_W=0.9
+
+if not exist "%DEFAULT_VOICE%" (
+    echo [ERROR] No se encontro la voz en "%DEFAULT_VOICE%"
+    exit /b 2
+)
+
+if not exist "%~dp0..\..\runtime" mkdir "%~dp0..\..\runtime"
+
+if exist "%PIPER_BIN%" (
+    set CMD="%PIPER_BIN%"
 ) else (
-  echo Introduce el texto a locutar y presiona ENTER.
-  set /p INPUT_TEXT=Texto: 
+    set CMD=python -m piper
 )
 
-if not "%INPUT_TEXT%"=="" (
-  if not exist "%RUNTIME_DIR%" mkdir "%RUNTIME_DIR%"
-  set INPUT_FILE=%RUNTIME_DIR%\tmp_input.txt
-  >"%INPUT_FILE%" echo %INPUT_TEXT%
-  echo [INFO] Texto guardado temporalmente en "%INPUT_FILE%".
-)
-
-if "%INPUT_FILE%"=="" (
-  echo [ERROR] No se recibió texto a leer.
-  exit /b 1
-)
-
-echo [INFO] Generando audio con Piper...
-"%PIPER_EXE%" -m "%DEFAULT_VOICE%" --sentence-break "500" -f "%OUTPUT_WAV%" < "%INPUT_FILE%"
+echo [INFO] Sintetizando con !CMD! y voz "%DEFAULT_VOICE%"
+cmd /c "echo !TEXT!| !CMD! -m \"%DEFAULT_VOICE%\" -f \"%OUTPUT%\" --sentence-break !SENTENCE_BREAK! --length-scale !LENGTH_SCALE! --noise-scale !NOISE_SCALE! --noise-w !NOISE_W!"
 if errorlevel 1 (
-  echo [ERROR] Piper terminó con errores.
-  exit /b 1
+    echo [ERROR] Piper devolvio un error.
+    exit /b 3
 )
 
-echo [OK] Audio generado en "%OUTPUT_WAV%".
-echo Ábrelo con tu reproductor favorito.
+if exist "%OUTPUT%" (
+    echo [OK] Archivo generado en "%OUTPUT%"
+    start "" "%OUTPUT%"
+) else (
+    echo [ERROR] Piper no genero "%OUTPUT%"
+    exit /b 4
+)
 
-endlocal
+exit /b 0

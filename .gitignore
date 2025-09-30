@@ -1,0 +1,5 @@
+# Voice model binaries are fetched via scripts; keep repository lightweight
+assets/voices/**/*.onnx
+assets/voices/**/*.onnx.json
+# Piper runtime binaries
+runtime/piper/
