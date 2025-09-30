@@ -20,8 +20,8 @@ set OUTPUT_WAV=%RUNTIME_DIR%\out.wav
 
 if not exist "%PIPER_EXE%" (
   echo [ERROR] Piper no encontrado en %PIPER_EXE%.
-  echo         Descarga piper_windows_amd64.zip desde:
-  echo         https://github.com/rhasspy/piper/releases/latest
+  echo         Descarga piper1-gpl_windows_amd64.zip desde:
+  echo         https://github.com/OHF-Voice/piper1-gpl/releases/latest
   echo         y extrae piper.exe en runtime\piper\
   exit /b 1
 )

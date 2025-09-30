@@ -11,8 +11,8 @@ tecnologías libres y de alto rendimiento.
    cd Reader
    ```
 2. **Descarga Piper**
-   - Visita <https://github.com/rhasspy/piper/releases/latest>.
-   - Descarga el ZIP `piper_windows_amd64` y extrae `piper.exe` en
+   - Visita <https://github.com/OHF-Voice/piper1-gpl/releases/latest>.
+   - Descarga el ZIP `piper1-gpl_windows_amd64` y extrae `piper.exe` en
      `runtime\piper\` dentro del repo (crea la carpeta si hace falta).
 3. **Descarga al menos una voz española**
    - En la misma release, busca un modelo de 22.05 kHz (calidad *high*), por
