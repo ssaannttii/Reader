@@ -10,10 +10,14 @@ tecnologías libres y de alto rendimiento.
    git clone https://github.com/<tu-usuario>/Reader.git
    cd Reader
    ```
-2. **Descarga Piper**
-   - Visita <https://github.com/OHF-Voice/piper1-gpl/releases/latest>.
-   - Descarga el ZIP `piper1-gpl_windows_amd64` y extrae `piper.exe` en
-     `runtime\piper\` dentro del repo (crea la carpeta si hace falta).
+2. **Obtén Piper para Windows**
+   - La última release de <https://github.com/OHF-Voice/piper1-gpl/releases/latest>
+     (verificada manualmente) no incluye binarios listos para Windows.
+   - Instala la rueda oficial con `python -m pip install --upgrade piper-tts` y
+     copia `piper.exe` desde tu entorno de Python (normalmente
+     `%USERPROFILE%\AppData\Local\Programs\Python\Python311\Scripts\piper.exe`
+     o `venv\Scripts\piper.exe`) a `runtime\piper\` dentro del repo (crea la
+     carpeta si hace falta).
 3. **Descarga al menos una voz española**
    - En la misma release, busca un modelo de 22.05 kHz (calidad *high*), por
      ejemplo `es_ES-aisa-high.onnx` o `es_ES-carlfm-high.onnx`.

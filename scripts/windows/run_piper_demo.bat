@@ -20,9 +20,8 @@ set OUTPUT_WAV=%RUNTIME_DIR%\out.wav
 
 if not exist "%PIPER_EXE%" (
   echo [ERROR] Piper no encontrado en %PIPER_EXE%.
-  echo         Descarga piper1-gpl_windows_amd64.zip desde:
-  echo         https://github.com/OHF-Voice/piper1-gpl/releases/latest
-  echo         y extrae piper.exe en runtime\piper\
+  echo         Instala la rueda con: python -m pip install --upgrade piper-tts
+  echo         y copia piper.exe desde la carpeta Scripts\ de tu Python a runtime\piper\
   exit /b 1
 )
 
