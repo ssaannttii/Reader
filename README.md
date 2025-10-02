@@ -3,7 +3,34 @@
 Plan maestro para un lector TTS local, optimizado para Windows, usando
 tecnologías libres y de alto rendimiento.
 
-## Empezar en Windows (CLI)
+## Instalación exprés en Windows (solo doble clic)
+
+1. **Clona el repositorio**
+   ```powershell
+   git clone https://github.com/<tu-usuario>/Reader.git
+   cd Reader
+   ```
+2. **Ejecuta `setup_reader.bat`**
+   - Haz doble clic en el archivo desde el Explorador o ejecútalo desde la
+     terminal:
+     ```bat
+     setup_reader.bat
+     ```
+   - El asistente hará todo por ti:
+     - Detecta (o te avisa si falta) Python 3.10+.
+     - Crea un entorno virtual aislado (`.reader_venv`).
+     - Instala Piper usando `pip` y copia `piper.exe` a `runtime\piper\`.
+     - Copia la voz de ejemplo incluida (`es_ES-carlfm-x_low`) a
+       `assets\voices\es_ES\` si no tienes otra voz.
+     - Te ofrece ejecutar una prueba guiada con `run_piper_demo.bat`.
+
+> 💡 El script es completamente repetible. Si ya tienes Piper o voces
+> instaladas, simplemente las detectará y seguirá adelante.
+
+## Empezar en Windows (CLI manual)
+
+Si prefieres realizar los pasos a mano (o estás en un entorno sin permisos
+para ejecutar scripts), sigue este flujo:
 
 1. **Clona el repositorio**
    ```powershell
