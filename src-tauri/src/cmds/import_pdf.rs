@@ -122,7 +122,11 @@ pub(crate) fn run_importer(
         return Err(CommandError::new(
             ERROR_SCRIPT_FAILED,
             format!("Importer exited with status {:?}", output.status.code()),
-            if stderr.is_empty() { None } else { Some(stderr) },
+            if stderr.is_empty() {
+                None
+            } else {
+                Some(stderr)
+            },
         ));
     }
 
@@ -154,10 +158,7 @@ pub(crate) fn run_importer(
         })
         .collect::<Result<Vec<_>, CommandError>>()?;
 
-    let metadata = raw
-        .metadata
-        .map(Value::Object)
-        .unwrap_or(Value::Null);
+    let metadata = raw.metadata.map(Value::Object).unwrap_or(Value::Null);
 
     Ok(ImportResponse {
         document: ImportedDocument {
@@ -178,6 +179,18 @@ pub fn import_pdf(request: ImportPdfRequest) -> Result<ImportResponse, CommandEr
         "scripts/py/import_pdf.py",
         &request.path,
     )
+}
+
+#[tauri::command]
+pub fn import_pdf_command(request: ImportPdfRequest) -> Result<Vec<String>, CommandError> {
+    import_pdf(request).map(|response| {
+        response
+            .document
+            .sections
+            .into_iter()
+            .map(|section| section.content)
+            .collect()
+    })
 }
 
 #[cfg(test)]
@@ -242,16 +255,44 @@ print(json.dumps({
     }
 
     #[test]
-    fn importer_error_returns_script_error() {
+    fn import_pdf_command_returns_content_only() {
         let temp = TempDir::new().unwrap();
         let _guard = write_mock_importer(
             &temp,
-            "import sys\nsys.stderr.write('fail')\nsys.exit(1)",
+            r#"import json, sys
+print(json.dumps({
+    "sections": [
+        {"id": "1", "heading": "Intro", "content": "Hola"},
+        {"id": "2", "heading": "Capítulo", "content": "Mundo"}
+    ]
+}))
+"#,
         );
+        let request = sample_request(&temp);
+        let sections = import_pdf_command(request).unwrap();
+        assert_eq!(sections, vec!["Hola".to_string(), "Mundo".to_string()]);
+    }
+
+    #[test]
+    fn importer_error_returns_script_error() {
+        let temp = TempDir::new().unwrap();
+        let _guard =
+            write_mock_importer(&temp, "import sys\nsys.stderr.write('fail')\nsys.exit(1)");
         let request = sample_request(&temp);
         let error = import_pdf(request).unwrap_err();
         assert_eq!(error.code, ERROR_SCRIPT_FAILED);
         assert_eq!(error.details.unwrap(), "fail");
+    }
+
+    #[test]
+    fn import_pdf_command_propagates_errors() {
+        let temp = TempDir::new().unwrap();
+        let _guard =
+            write_mock_importer(&temp, "import sys\nsys.stderr.write('boom')\nsys.exit(3)");
+        let request = sample_request(&temp);
+        let error = import_pdf_command(request).unwrap_err();
+        assert_eq!(error.code, ERROR_SCRIPT_FAILED);
+        assert_eq!(error.details.as_deref(), Some("boom"));
     }
 
     #[test]

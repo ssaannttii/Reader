@@ -53,19 +53,15 @@ impl From<CommandFailure> for CommandError {
                 format!("Voice model not found: {}", path.display()),
                 None,
             ),
-            CommandFailure::SpawnFailure(err) => CommandError::new(
-                ERROR_IO,
-                "Failed to launch Piper",
-                Some(err.to_string()),
-            ),
+            CommandFailure::SpawnFailure(err) => {
+                CommandError::new(ERROR_IO, "Failed to launch Piper", Some(err.to_string()))
+            }
             CommandFailure::PiperFailure { status, stderr } => CommandError::new(
                 ERROR_PROCESS_FAILED,
                 format!("Piper exited with status {status}"),
                 Some(stderr),
             ),
-            CommandFailure::Other(message) => {
-                CommandError::new(ERROR_INTERNAL, message, None)
-            }
+            CommandFailure::Other(message) => CommandError::new(ERROR_INTERNAL, message, None),
         }
     }
 }
@@ -164,9 +160,10 @@ impl PiperInvoker for DefaultPiperInvoker {
             .spawn()
             .map_err(CommandFailure::SpawnFailure)?;
         {
-            let stdin = child.stdin.as_mut().ok_or_else(|| {
-                CommandFailure::Other("Failed to access Piper stdin".into())
-            })?;
+            let stdin = child
+                .stdin
+                .as_mut()
+                .ok_or_else(|| CommandFailure::Other("Failed to access Piper stdin".into()))?;
             stdin
                 .write_all(request.text.as_bytes())
                 .map_err(|err| CommandFailure::Other(err.to_string()))?;
@@ -179,10 +176,7 @@ impl PiperInvoker for DefaultPiperInvoker {
 
         if !output.status.success() {
             let code = output.status.code().unwrap_or_default();
-            error!(
-                "Piper command exited with status {code}: {}",
-                stderr
-            );
+            error!("Piper command exited with status {code}: {}", stderr);
             return Err(CommandFailure::PiperFailure {
                 status: code,
                 stderr,
@@ -199,7 +193,11 @@ impl PiperInvoker for DefaultPiperInvoker {
         Ok(SpeakResponse {
             output_path: request.output_path.clone(),
             duration_ms,
-            stderr: if stderr.is_empty() { None } else { Some(stderr) },
+            stderr: if stderr.is_empty() {
+                None
+            } else {
+                Some(stderr)
+            },
         })
     }
 }
@@ -211,12 +209,10 @@ pub fn speak(request: SpeakRequest) -> Result<SpeakResponse, CommandError> {
         request.output_path.display()
     );
 
-    DefaultPiperInvoker
-        .invoke(&request)
-        .map_err(|err| {
-            error!("Speak command failed: {err}");
-            CommandError::from(err)
-        })
+    DefaultPiperInvoker.invoke(&request).map_err(|err| {
+        error!("Speak command failed: {err}");
+        CommandError::from(err)
+    })
 }
 
 #[cfg(test)]
@@ -268,7 +264,8 @@ mod tests {
     #[test]
     fn speak_success_creates_audio() {
         let temp = TempDir::new().unwrap();
-        let _guard = write_mock_piper_script(&temp, 
+        let _guard = write_mock_piper_script(
+            &temp,
             r#"import argparse
 import sys
 parser = argparse.ArgumentParser()
