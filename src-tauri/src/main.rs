@@ -2,6 +2,7 @@ use std::{fs, path::PathBuf};
 
 use log::{error, info};
 mod cmds;
+mod ssml;
 
 use cmds::{import_epub_command, import_pdf_command, import_text, speak};
 

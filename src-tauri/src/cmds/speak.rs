@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use shlex::Shlex;
 use thiserror::Error;
 
+use crate::ssml;
+
 const ERROR_VOICE_NOT_FOUND: &str = "VOICE_NOT_FOUND";
 const ERROR_PROCESS_FAILED: &str = "PROCESS_FAILED";
 const ERROR_IO: &str = "IO_ERROR";
@@ -154,6 +156,8 @@ impl PiperInvoker for DefaultPiperInvoker {
         let start = Instant::now();
         let mut command = Self::build_command(request)?;
         Self::command_arguments(&mut command, request);
+        let ssml_text = ssml::render_paragraph(&request.text)
+            .map_err(|err| CommandFailure::Other(format!("Failed to build SSML: {err}")))?;
         let mut child = command
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
@@ -165,7 +169,7 @@ impl PiperInvoker for DefaultPiperInvoker {
                 .as_mut()
                 .ok_or_else(|| CommandFailure::Other("Failed to access Piper stdin".into()))?;
             stdin
-                .write_all(request.text.as_bytes())
+                .write_all(ssml_text.as_bytes())
                 .map_err(|err| CommandFailure::Other(err.to_string()))?;
         }
         let output = child
@@ -253,7 +257,7 @@ mod tests {
         }
         let output_path = temp.path().join("output.wav");
         SpeakRequest {
-            text: "hola".into(),
+            text: "Hola mundo.".into(),
             model_path,
             output_path,
             speaker: None,
@@ -281,7 +285,8 @@ with open(args.output_file, 'w', encoding='utf-8') as f:
         let response = speak(request).unwrap();
         assert!(response.duration_ms > 0);
         let output = fs::read_to_string(temp.path().join("output.wav")).unwrap();
-        assert_eq!(output, "WAV:hola");
+        assert!(output.starts_with("WAV:<speak"));
+        assert!(output.contains("Hola mundo."));
     }
 
     #[test]
@@ -307,5 +312,16 @@ sys.exit(2)
         let error = speak(request).unwrap_err();
         assert_eq!(error.code, ERROR_PROCESS_FAILED);
         assert_eq!(error.details.unwrap(), "boom");
+    }
+
+    #[test]
+    fn speak_invalid_ssml_directive_returns_error() {
+        let temp = TempDir::new().unwrap();
+        let _guard = write_mock_piper_script(&temp, "import sys; sys.exit(0)");
+        let mut request = make_request(&temp, true);
+        request.text = "[pause:???]".into();
+        let error = speak(request).unwrap_err();
+        assert_eq!(error.code, ERROR_INTERNAL);
+        assert!(error.message.contains("Failed to build SSML"));
     }
 }
