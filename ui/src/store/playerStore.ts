@@ -5,6 +5,22 @@ import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 export type VoicePreference = {
   id: string;
   label: string;
+  language?: string;
+  quality?: string;
+};
+
+type BackendVoice = {
+  id: string;
+  label: string;
+  language?: string | null;
+  quality?: string | null;
+};
+
+type SpeakResponse = {
+  output_path: string;
+  duration_ms: number;
+  stderr?: string | null;
+  playback_id?: number | null;
 };
 
 export type ThemeMode = 'light' | 'dark';
@@ -48,7 +64,7 @@ export interface PlayerState {
   playFrom: (index: number) => Promise<void>;
   togglePlayPause: () => Promise<void>;
   playNext: () => Promise<void>;
-  importDocument: (command: string, args?: Record<string, unknown>) => Promise<void>;
+  importDocument: (command: string, path: string) => Promise<void>;
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
@@ -59,10 +75,12 @@ const noopStorage: StateStorage = {
   removeItem: () => undefined
 };
 
-const storage =
-  typeof window !== 'undefined'
-    ? createJSONStorage(() => window.localStorage)
-    : createJSONStorage(() => noopStorage);
+const storage = createJSONStorage(() => {
+  if (typeof window !== 'undefined' && window?.localStorage) {
+    return window.localStorage;
+  }
+  return noopStorage;
+});
 
 export const usePlayerStore = create<PlayerState>()(
   persist(
@@ -73,11 +91,19 @@ export const usePlayerStore = create<PlayerState>()(
       preferences: { ...defaultPreferences },
       availableVoices: defaultVoices,
       setQueue: (paragraphs) => {
-        set({ queue: paragraphs.filter((paragraph) => paragraph.trim().length > 0), currentIndex: 0 });
+        const cleaned = paragraphs
+          .map((paragraph) => paragraph.trim())
+          .filter((paragraph) => paragraph.length > 0);
+        set({ queue: cleaned, currentIndex: 0 });
       },
       enqueue: (paragraph) => {
-        const toAdd = Array.isArray(paragraph) ? paragraph : [paragraph];
-        set((state) => ({ queue: [...state.queue, ...toAdd.filter((item) => item.trim().length > 0)] }));
+        const toAdd = (Array.isArray(paragraph) ? paragraph : [paragraph])
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0);
+        if (toAdd.length === 0) {
+          return;
+        }
+        set((state) => ({ queue: [...state.queue, ...toAdd] }));
       },
       setCurrentIndex: (index) => {
         set({ currentIndex: clamp(index, 0, Math.max(get().queue.length - 1, 0)) });
@@ -104,9 +130,16 @@ export const usePlayerStore = create<PlayerState>()(
       },
       loadVoices: async () => {
         try {
-          const voices = await invoke<VoicePreference[]>('list_voices');
+          const voices = await invoke<BackendVoice[]>('list_voices');
           if (Array.isArray(voices) && voices.length > 0) {
-            set({ availableVoices: voices });
+            set({
+              availableVoices: voices.map((voice) => ({
+                id: voice.id,
+                label: voice.label,
+                language: voice.language ?? undefined,
+                quality: voice.quality ?? undefined
+              }))
+            });
           }
         } catch (error) {
           console.warn('No se pudieron cargar las voces desde Tauri', error);
@@ -120,12 +153,12 @@ export const usePlayerStore = create<PlayerState>()(
         }
         set({ currentIndex: index, isPlaying: true });
         try {
-          await invoke('speak', {
-            text: paragraph,
-            options: {
-              voice: state.preferences.voice,
-              rate: state.preferences.rate,
-              pitch: state.preferences.pitch,
+          const lengthScale = Number((1 / state.preferences.rate).toFixed(2));
+          await invoke<SpeakResponse>('speak', {
+            request: {
+              text: paragraph,
+              voice_id: state.preferences.voice,
+              length_scale: lengthScale,
               volume: state.preferences.volume
             }
           });
@@ -138,7 +171,7 @@ export const usePlayerStore = create<PlayerState>()(
         const { isPlaying } = get();
         try {
           if (isPlaying) {
-            await invoke('stop_audio');
+            await invoke('pause_audio');
             set({ isPlaying: false });
           } else {
             await invoke('play_audio');
@@ -158,9 +191,9 @@ export const usePlayerStore = create<PlayerState>()(
           set({ isPlaying: false });
         }
       },
-      importDocument: async (command, args = {}) => {
+      importDocument: async (command, path) => {
         try {
-          const paragraphs = await invoke<string[]>(command, args);
+          const paragraphs = await invoke<string[]>(command, { path });
           if (Array.isArray(paragraphs)) {
             get().setQueue(paragraphs);
           }

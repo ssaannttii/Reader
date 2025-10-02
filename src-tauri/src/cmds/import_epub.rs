@@ -20,8 +20,8 @@ pub fn import_epub(request: ImportEpubRequest) -> Result<ImportResponse, Command
 }
 
 #[tauri::command]
-pub fn import_epub_command(request: ImportEpubRequest) -> Result<Vec<String>, CommandError> {
-    import_epub(request).map(|response| {
+pub fn import_epub_command(path: PathBuf) -> Result<Vec<String>, CommandError> {
+    import_epub(ImportEpubRequest { path }).map(|response| {
         response
             .document
             .sections
@@ -104,7 +104,7 @@ print(json.dumps({
 "#,
         );
         let request = sample_request(&temp);
-        let sections = import_epub_command(request).unwrap();
+        let sections = import_epub_command(request.path).unwrap();
         assert_eq!(sections, vec!["Primero".to_string(), "Segundo".to_string()]);
     }
 
@@ -125,7 +125,7 @@ print(json.dumps({
         let _guard =
             write_mock_importer(&temp, "import sys\nsys.stderr.write('oops')\nsys.exit(5)");
         let request = sample_request(&temp);
-        let error = import_epub_command(request).unwrap_err();
+        let error = import_epub_command(request.path).unwrap_err();
         assert_eq!(error.code, import_pdf::ERROR_SCRIPT_FAILED);
         assert_eq!(error.details.as_deref(), Some("oops"));
     }

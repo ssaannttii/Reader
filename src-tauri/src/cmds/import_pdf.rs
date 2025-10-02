@@ -182,8 +182,8 @@ pub fn import_pdf(request: ImportPdfRequest) -> Result<ImportResponse, CommandEr
 }
 
 #[tauri::command]
-pub fn import_pdf_command(request: ImportPdfRequest) -> Result<Vec<String>, CommandError> {
-    import_pdf(request).map(|response| {
+pub fn import_pdf_command(path: PathBuf) -> Result<Vec<String>, CommandError> {
+    import_pdf(ImportPdfRequest { path }).map(|response| {
         response
             .document
             .sections
@@ -269,7 +269,7 @@ print(json.dumps({
 "#,
         );
         let request = sample_request(&temp);
-        let sections = import_pdf_command(request).unwrap();
+        let sections = import_pdf_command(request.path).unwrap();
         assert_eq!(sections, vec!["Hola".to_string(), "Mundo".to_string()]);
     }
 
@@ -290,7 +290,7 @@ print(json.dumps({
         let _guard =
             write_mock_importer(&temp, "import sys\nsys.stderr.write('boom')\nsys.exit(3)");
         let request = sample_request(&temp);
-        let error = import_pdf_command(request).unwrap_err();
+        let error = import_pdf_command(request.path).unwrap_err();
         assert_eq!(error.code, ERROR_SCRIPT_FAILED);
         assert_eq!(error.details.as_deref(), Some("boom"));
     }

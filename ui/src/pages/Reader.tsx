@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { open, save } from '@tauri-apps/api/dialog';
+import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/tauri';
 import Controls from '../components/Controls';
 import QueueList from '../components/QueueList';
 import VoiceSelector from '../components/VoiceSelector';
@@ -45,6 +48,15 @@ const Reader = () => {
     setQueue(paragraphs);
   };
 
+  useEffect(() => {
+    const subscription = listen<number>('reader://playback-ended', async () => {
+      await playNext();
+    });
+    return () => {
+      void subscription.then((unlisten) => unlisten());
+    };
+  }, [playNext]);
+
   const handlePlayPause = async () => {
     if (!isPlaying) {
       if (queue.length === 0) {
@@ -70,11 +82,42 @@ const Reader = () => {
   };
 
   const handleImport = async (command: string) => {
+    const filters = {
+      import_epub_command: [{ name: 'EPUB', extensions: ['epub'] }],
+      import_pdf_command: [{ name: 'PDF', extensions: ['pdf'] }],
+      import_text: [{ name: 'Texto', extensions: ['txt', 'md'] }]
+    } as const;
+
+    const selected = await open({
+      multiple: false,
+      filters: filters[command as keyof typeof filters],
+      title: 'Selecciona un archivo para importar'
+    });
+    if (!selected || Array.isArray(selected)) {
+      return;
+    }
+
     setImporting(true);
     try {
-      await importDocument(command);
+      await importDocument(command, selected);
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const destination = await save({
+        title: 'Guardar como WAV',
+        filters: [{ name: 'WAV', extensions: ['wav'] }],
+        defaultPath: `lectura-${Date.now()}.wav`
+      });
+      if (!destination || Array.isArray(destination)) {
+        return;
+      }
+      await invoke('export_audio', { destination });
+    } catch (error) {
+      console.error('No se pudo exportar el audio', error);
     }
   };
 
@@ -106,7 +149,7 @@ const Reader = () => {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => handleImport('import_epub')}
+                    onClick={() => handleImport('import_epub_command')}
                     className="rounded-md border border-muted/40 px-3 py-2 text-xs font-medium focus-ring"
                     disabled={importing}
                   >
@@ -114,7 +157,7 @@ const Reader = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleImport('import_pdf')}
+                    onClick={() => handleImport('import_pdf_command')}
                     className="rounded-md border border-muted/40 px-3 py-2 text-xs font-medium focus-ring"
                     disabled={importing}
                   >
@@ -158,6 +201,7 @@ const Reader = () => {
                 isPlaying={isPlaying}
                 onPlayPause={handlePlayPause}
                 onNext={handleNext}
+                onExport={handleExport}
                 rate={preferences.rate}
                 pitch={preferences.pitch}
                 volume={preferences.volume}

@@ -1,10 +1,17 @@
 use std::{fs, path::PathBuf};
 
 use log::{error, info};
+mod audio;
 mod cmds;
+mod dict;
 mod ssml;
+mod state;
 
-use cmds::{import_epub_command, import_pdf_command, import_text, speak};
+use cmds::{
+    current_audio, export_audio, handle_audio_completion, import_epub_command, import_pdf_command,
+    import_text, pause_audio, play_audio, stop_audio, CommandError, SpeakCommand, SpeakResponse,
+};
+use state::AppState;
 
 fn init_logging() {
     let logs_dir = PathBuf::from("logs");
@@ -37,17 +44,50 @@ fn main() {
     init_logging();
     info!("Starting Reader Tauri backend");
 
+    let app_state = match AppState::initialise() {
+        Ok(state) => state,
+        Err(err) => {
+            error!("Failed to initialise application state: {err:?}");
+            panic!("Unable to start Reader backend: {err}");
+        }
+    };
+
     if let Err(err) = tauri::Builder::default()
+        .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             speak,
             import_pdf_command,
             import_epub_command,
-            import_text
+            import_text,
+            list_voices,
+            play_audio,
+            pause_audio,
+            stop_audio,
+            current_audio,
+            export_audio,
         ])
         .run(tauri::generate_context!())
     {
         error!("Tauri runtime error: {err:?}");
     }
+}
+
+#[tauri::command]
+fn list_voices(state: tauri::State<AppState>) -> Vec<cmds::VoiceInfo> {
+    state.voices.list()
+}
+
+#[tauri::command]
+fn speak(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<AppState>,
+    request: SpeakCommand,
+) -> Result<SpeakResponse, CommandError> {
+    let response = cmds::execute_synthesis(&state, request)?;
+    if let Some(playback_id) = response.playback_id {
+        handle_audio_completion(&state.audio, &app_handle, playback_id);
+    }
+    Ok(response)
 }
 
 #[cfg(test)]

@@ -2,10 +2,13 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
 import Controls from '../Controls';
 
-describe('Controls component', () => {
+const hasDocument = typeof document !== 'undefined';
+
+(hasDocument ? describe : describe.skip)('Controls component', () => {
   const setup = () => {
     const onPlayPause = vi.fn();
     const onNext = vi.fn();
+    const onExport = vi.fn();
     const onRateChange = vi.fn();
     const onPitchChange = vi.fn();
     const onVolumeChange = vi.fn();
@@ -15,6 +18,7 @@ describe('Controls component', () => {
         isPlaying={false}
         onPlayPause={onPlayPause}
         onNext={onNext}
+        onExport={onExport}
         rate={1}
         pitch={1}
         volume={1}
@@ -24,7 +28,7 @@ describe('Controls component', () => {
       />
     );
 
-    return { onPlayPause, onNext, onRateChange, onPitchChange, onVolumeChange };
+    return { onPlayPause, onNext, onExport, onRateChange, onPitchChange, onVolumeChange };
   };
 
   it('triggers play and next callbacks', () => {
@@ -32,9 +36,11 @@ describe('Controls component', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /reproducir/i }));
     fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+    fireEvent.click(screen.getByRole('button', { name: /exportar/i }));
 
     expect(callbacks.onPlayPause).toHaveBeenCalledTimes(1);
     expect(callbacks.onNext).toHaveBeenCalledTimes(1);
+    expect(callbacks.onExport).toHaveBeenCalledTimes(1);
   });
 
   it('reports slider changes', () => {

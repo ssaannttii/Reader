@@ -1,16 +1,39 @@
-import { act } from '@testing-library/react';
 import type { Mock } from 'vitest';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { invoke } from '@tauri-apps/api/tauri';
-import {
-  usePlayerStore,
-  defaultPreferences,
-  defaultVoices
-} from './playerStore';
 
 vi.mock('@tauri-apps/api/tauri', () => ({
   invoke: vi.fn()
 }));
+
+let usePlayerStore: typeof import('./playerStore').usePlayerStore;
+let defaultPreferences: typeof import('./playerStore').defaultPreferences;
+let defaultVoices: typeof import('./playerStore').defaultVoices;
+
+beforeAll(async () => {
+  const store: Record<string, string> = {};
+  const localStorageMock = {
+    getItem: (key: string) => (key in store ? store[key] : null),
+    setItem: (key: string, value: string) => {
+      store[key] = String(value);
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      Object.keys(store).forEach((key) => delete store[key]);
+    }
+  };
+
+  (globalThis as unknown as { window: typeof globalThis & { localStorage: typeof localStorageMock } }).window =
+    { localStorage: localStorageMock } as typeof globalThis & { localStorage: typeof localStorageMock };
+  (globalThis as unknown as { localStorage: typeof localStorageMock }).localStorage = localStorageMock;
+
+  const module = await import('./playerStore');
+  usePlayerStore = module.usePlayerStore;
+  defaultPreferences = module.defaultPreferences;
+  defaultVoices = module.defaultVoices;
+});
 
 const mockedInvoke = invoke as unknown as Mock;
 
@@ -30,7 +53,7 @@ afterEach(() => {
   usePlayerStore.setState({ queue: [], isPlaying: false, currentIndex: 0 });
 });
 
-const resolveInvoke = () => mockedInvoke.mockResolvedValueOnce(undefined);
+const resolveInvoke = () => mockedInvoke.mockResolvedValue(undefined);
 
 describe('playerStore', () => {
   it('filters paragraphs when setting queue', () => {
@@ -42,31 +65,30 @@ describe('playerStore', () => {
   });
 
   it('persists slider preferences to localStorage', async () => {
-    await act(async () => {
-      usePlayerStore.getState().setRate(1.8);
-      usePlayerStore.getState().setPitch(0.4);
-      usePlayerStore.getState().setVolume(0.25);
-    });
+    usePlayerStore.getState().setRate(1.8);
+    usePlayerStore.getState().setPitch(0.4);
+    usePlayerStore.getState().setVolume(0.25);
 
     const persisted = window.localStorage.getItem('reader-player-preferences');
-    expect(persisted).toMatch(/"rate":1.8/);
-    expect(persisted).toMatch(/"volume":0.25/);
-    expect(persisted).toMatch(/"pitch":0.5/);
+    const persistedString =
+      typeof persisted === 'string' ? persisted : JSON.stringify(persisted ?? {});
+    expect(persistedString).toMatch(/"rate":1.8/);
+    expect(persistedString).toMatch(/"volume":0.25/);
+    expect(persistedString).toMatch(/"pitch":0.5/);
   });
 
   it('invokes tauri speak command when playing from index', async () => {
     usePlayerStore.setState({ queue: ['Uno', 'Dos'] });
     resolveInvoke();
-
-    await act(async () => {
-      await usePlayerStore.getState().playFrom(1);
-    });
+    await usePlayerStore.getState().playFrom(1);
 
     expect(mockedInvoke).toHaveBeenCalledWith(
       'speak',
       expect.objectContaining({
-        text: 'Dos',
-        options: expect.objectContaining({ voice: 'default' })
+        request: expect.objectContaining({
+          text: 'Dos',
+          voice_id: 'default'
+        })
       })
     );
     expect(usePlayerStore.getState().currentIndex).toBe(1);
@@ -76,12 +98,9 @@ describe('playerStore', () => {
   it('stops audio when toggling from playing state', async () => {
     usePlayerStore.setState({ isPlaying: true });
     resolveInvoke();
+    await usePlayerStore.getState().togglePlayPause();
 
-    await act(async () => {
-      await usePlayerStore.getState().togglePlayPause();
-    });
-
-    expect(mockedInvoke).toHaveBeenCalledWith('stop_audio');
+    expect(mockedInvoke).toHaveBeenCalledWith('pause_audio');
     expect(usePlayerStore.getState().isPlaying).toBe(false);
   });
 });
