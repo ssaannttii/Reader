@@ -66,14 +66,16 @@ if /i "%1"=="-f" (
     exit /b 1
   )
   set INPUT_FILE=%~f2
-) else if not "%1"=="" (
-  set INPUT_TEXT=%~1
 ) else (
-  echo Introduce el texto a locutar y presiona ENTER.
-  set /p INPUT_TEXT=Texto: 
+  if not "%~1"=="" (
+    set INPUT_TEXT=%~1
+  ) else (
+    echo Introduce el texto a locutar y presiona ENTER.
+    set /p INPUT_TEXT=Texto:
+  )
 )
 
-if not "%INPUT_TEXT%"=="" (
+if not "!INPUT_TEXT!"=="" (
   if not exist "%RUNTIME_DIR%" mkdir "%RUNTIME_DIR%"
   set INPUT_FILE=%RUNTIME_DIR%\tmp_input.txt
   >"%INPUT_FILE%" echo %INPUT_TEXT%
