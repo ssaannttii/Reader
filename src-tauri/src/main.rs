@@ -3,7 +3,7 @@ use std::{fs, path::PathBuf};
 use log::{error, info};
 mod cmds;
 
-use cmds::{import_epub, import_pdf, speak};
+use cmds::{import_epub, import_pdf, list_voices, speak};
 
 fn init_logging() {
     let logs_dir = PathBuf::from("logs");
@@ -39,7 +39,7 @@ fn main() {
     info!("Starting Reader Tauri backend");
 
     if let Err(err) = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![speak, import_pdf, import_epub])
+        .invoke_handler(tauri::generate_handler![speak, import_pdf, import_epub, list_voices])
         .run(tauri::generate_context!())
     {
         error!("Tauri runtime error: {err:?}");
