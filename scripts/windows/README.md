@@ -10,6 +10,27 @@ Script por lotes que invoca `piper.exe` con la voz española instalada en
 Puedes pasar el texto directamente como argumento o leerlo desde un archivo
 usando `-f`.
 
+## `setup_reader.bat`
+
+Asistente todo-en-uno pensado para usuarios novatos. Al ejecutarlo desde la
+raíz del repositorio (`setup_reader.bat`) o directamente este archivo dentro
+de `scripts/windows/`, realiza las siguientes tareas:
+
+1. Comprueba que tengas Python 3.10+ disponible y te avisa si falta.
+2. Crea un entorno virtual aislado llamado `.reader_venv`.
+3. Instala/actualiza `piper-tts` dentro del entorno y copia `piper.exe` a
+   `runtime/piper/`.
+4. Copia la voz de ejemplo `es_ES-carlfm-x_low.onnx` a `assets/voices/es_ES/`
+   si aún no tienes ninguna voz instalada.
+5. Ofrece ejecutar `run_piper_demo.bat` para que generes un audio de prueba al
+   finalizar.
+
+El asistente es idempotente: puedes volver a lanzarlo cuando quieras para
+recibir actualizaciones de Piper o comprobar que todo sigue configurado.
+
+Si no puedes ejecutarlo (por políticas de tu equipo) o prefieres controlar
+cada paso manualmente, a continuación tienes la guía tradicional.
+
 ### Requisitos previos
 
 1. **Instalar Piper**
