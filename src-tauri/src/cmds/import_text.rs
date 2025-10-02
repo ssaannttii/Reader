@@ -1,8 +1,13 @@
+use std::fs;
+use std::path::PathBuf;
+
 use serde::Deserialize;
+
+use super::CommandError;
 
 #[derive(Debug, Deserialize)]
 pub struct ImportTextRequest {
-    pub text: String,
+    pub path: PathBuf,
 }
 
 pub fn extract_paragraphs(text: &str) -> Vec<String> {
@@ -28,8 +33,15 @@ pub fn extract_paragraphs(text: &str) -> Vec<String> {
 }
 
 #[tauri::command]
-pub fn import_text(request: ImportTextRequest) -> Vec<String> {
-    extract_paragraphs(&request.text)
+pub fn import_text(request: ImportTextRequest) -> Result<Vec<String>, CommandError> {
+    let contents = fs::read_to_string(&request.path).map_err(|err| {
+        CommandError::new(
+            "IO_ERROR",
+            format!("Unable to read text file: {}", request.path.display()),
+            Some(err.to_string()),
+        )
+    })?;
+    Ok(extract_paragraphs(&contents))
 }
 
 #[cfg(test)]

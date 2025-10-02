@@ -3,6 +3,12 @@
     "productName": "Reader",
     "version": "0.1.0"
   },
+  "build": {
+    "beforeDevCommand": "pnpm --dir ui dev",
+    "beforeBuildCommand": "pnpm --dir ui build",
+    "devPath": "http://localhost:5173",
+    "distDir": "../ui/dist"
+  },
   "tauri": {
     "windows": [
       {

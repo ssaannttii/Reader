@@ -93,6 +93,64 @@ cargo tauri dev
 Mientras el frontend está en desarrollo, puedes seguir usando Piper mediante
 el script por lotes o directamente vía CLI.
 
+## Aplicación de escritorio (Tauri)
+
+El MVP incluido en este repositorio permite gestionar la cola de lectura,
+escoger voces y sintetizar párrafos directamente desde la UI.
+
+### Dependencias
+
+1. Instala las herramientas descritas en la sección "Requisitos para la futura
+   app Tauri" (Rust estable, Node.js 18+, pnpm o npm, Visual Studio Build Tools
+   en Windows y Python 3.10+ para los importadores).
+2. Instala las dependencias del frontend:
+
+   ```bash
+   cd ui
+   pnpm install
+   ```
+
+3. Vuelve a la raíz del proyecto y ejecuta el modo desarrollo de Tauri:
+
+   ```bash
+   pnpm tauri dev
+   ```
+
+   El comando lanzará automáticamente el servidor de Vite del frontend y el
+   proceso de Tauri. Desde la ventana podrás:
+
+   - Importar archivos EPUB/PDF/TXT (se abrirá el selector de archivos del
+     sistema).
+   - Editar párrafos manualmente y añadirlos a la cola.
+   - Elegir la voz Piper disponible, ajustar velocidad, tono y volumen.
+   - Reproducir, pausar, avanzar al siguiente párrafo y exportar el último WAV
+     generado.
+
+> ℹ️  El backend emite el evento `reader://playback-ended` cada vez que Piper
+> termina de sintetizar un párrafo. La interfaz lo escucha para avanzar en la
+> cola automáticamente.
+
+### Gestión de voces
+
+El comando `list_voices` escanea `assets/voices/` (o la carpeta definida en
+`READER_VOICES_DIR`) en busca de modelos `.onnx`. Para cada voz, intenta cargar
+el archivo `.onnx.json` asociado para mostrar el idioma y la calidad. Asegúrate
+de conservar la pareja `modelo.onnx` + `modelo.onnx.json` en el mismo directorio.
+
+### Diccionario de pronunciación
+
+El backend crea (si no existe) `runtime/dictionary.json`. Puedes editar ese
+archivo manualmente con entradas como:
+
+```json
+[
+  { "word": "AI", "replacement": "ei" }
+]
+```
+
+Cada palabra se reemplaza de forma insensible a mayúsculas antes de generar el
+SSML enviado a Piper.
+
 ## Estructura de carpetas
 ```
 reader/

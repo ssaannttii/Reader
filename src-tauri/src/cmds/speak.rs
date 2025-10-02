@@ -1,27 +1,37 @@
 use std::{
     fs,
     io::Write,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     time::Instant,
 };
 
-use log::{error, info, warn};
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use shlex::Shlex;
 use thiserror::Error;
 
-use crate::ssml;
+use crate::{
+    audio::{AudioError, AudioManager},
+    dict::Dictionary,
+    ssml,
+    state::AppState,
+};
+
+use super::voices::{VoiceError, VoiceLibrary};
 
 const ERROR_VOICE_NOT_FOUND: &str = "VOICE_NOT_FOUND";
 const ERROR_PROCESS_FAILED: &str = "PROCESS_FAILED";
 const ERROR_IO: &str = "IO_ERROR";
 const ERROR_INTERNAL: &str = "INTERNAL_ERROR";
+const ERROR_AUDIO: &str = "AUDIO_ERROR";
 
 #[derive(Debug, Error)]
 pub enum CommandFailure {
     #[error("voice model not found at {0}")]
     VoiceNotFound(PathBuf),
+    #[error("voice '{0}' is not registered")]
+    UnknownVoice(String),
     #[error("failed to spawn Piper process: {0}")]
     SpawnFailure(#[from] std::io::Error),
     #[error("Piper exited with status {status}: {stderr}")]
@@ -55,28 +65,59 @@ impl From<CommandFailure> for CommandError {
                 format!("Voice model not found: {}", path.display()),
                 None,
             ),
+            CommandFailure::UnknownVoice(id) => CommandError::new(
+                ERROR_VOICE_NOT_FOUND,
+                format!("Voice '{id}' is not available"),
+                None,
+            ),
             CommandFailure::SpawnFailure(err) => {
                 CommandError::new(ERROR_IO, "Failed to launch Piper", Some(err.to_string()))
             }
             CommandFailure::PiperFailure { status, stderr } => CommandError::new(
                 ERROR_PROCESS_FAILED,
                 format!("Piper exited with status {status}"),
-                Some(stderr),
+                if stderr.is_empty() {
+                    None
+                } else {
+                    Some(stderr)
+                },
             ),
             CommandFailure::Other(message) => CommandError::new(ERROR_INTERNAL, message, None),
         }
     }
 }
 
+impl From<AudioError> for CommandError {
+    fn from(value: AudioError) -> Self {
+        CommandError::new(ERROR_AUDIO, value.to_string(), None)
+    }
+}
+
+impl From<VoiceError> for CommandFailure {
+    fn from(value: VoiceError) -> Self {
+        match value {
+            VoiceError::NotFound(id) => CommandFailure::UnknownVoice(id),
+            VoiceError::Metadata(path, err) => {
+                CommandFailure::Other(format!("Failed to read metadata {}: {err}", path.display()))
+            }
+            VoiceError::MetadataParse(path, err) => CommandFailure::Other(format!(
+                "Failed to parse metadata {}: {err}",
+                path.display()
+            )),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
-pub struct SpeakRequest {
+pub struct SpeakCommand {
     pub text: String,
-    pub model_path: PathBuf,
-    pub output_path: PathBuf,
-    #[serde(default)]
-    pub speaker: Option<String>,
+    pub voice_id: String,
     #[serde(default)]
     pub length_scale: Option<f32>,
+    #[serde(default)]
+    pub export_path: Option<PathBuf>,
+    #[serde(default)]
+    pub volume: Option<f32>,
 }
 
 #[derive(Debug, Serialize, PartialEq)]
@@ -84,6 +125,7 @@ pub struct SpeakResponse {
     pub output_path: PathBuf,
     pub duration_ms: u128,
     pub stderr: Option<String>,
+    pub playback_id: Option<u64>,
 }
 
 trait PiperInvoker {
@@ -91,6 +133,15 @@ trait PiperInvoker {
 }
 
 struct DefaultPiperInvoker;
+
+#[derive(Debug)]
+pub struct SpeakRequest {
+    pub text: String,
+    pub model_path: PathBuf,
+    pub output_path: PathBuf,
+    pub speaker: Option<String>,
+    pub length_scale: Option<f32>,
+}
 
 impl DefaultPiperInvoker {
     fn build_command(request: &SpeakRequest) -> Result<Command, CommandFailure> {
@@ -140,13 +191,20 @@ impl DefaultPiperInvoker {
         command.arg(&request.model_path);
         command.arg("--output_file");
         command.arg(&request.output_path);
+        let config_path = request.model_path.with_extension("onnx.json");
+        if config_path.exists() {
+            command.arg("--config");
+            command.arg(config_path);
+        }
         if let Some(speaker) = &request.speaker {
             command.arg("--speaker");
             command.arg(speaker);
         }
         if let Some(scale) = request.length_scale {
-            command.arg("--length_scale");
-            command.arg(scale.to_string());
+            if (0.05..=4.0).contains(&scale) {
+                command.arg("--length_scale");
+                command.arg(scale.to_string());
+            }
         }
     }
 }
@@ -187,13 +245,6 @@ impl PiperInvoker for DefaultPiperInvoker {
             });
         }
 
-        if !request.output_path.exists() {
-            warn!(
-                "Piper succeeded but the expected output {:?} was not created",
-                request.output_path
-            );
-        }
-
         Ok(SpeakResponse {
             output_path: request.output_path.clone(),
             duration_ms,
@@ -202,21 +253,78 @@ impl PiperInvoker for DefaultPiperInvoker {
             } else {
                 Some(stderr)
             },
+            playback_id: None,
         })
     }
 }
 
-pub fn speak(request: SpeakRequest) -> Result<SpeakResponse, CommandError> {
-    info!(
-        "Invoking Piper for model {} writing to {}",
-        request.model_path.display(),
-        request.output_path.display()
-    );
+fn prepare_request(
+    command: &SpeakCommand,
+    voices: &VoiceLibrary,
+    dictionary: &Dictionary,
+    output_dir: &Path,
+) -> Result<SpeakRequest, CommandFailure> {
+    let voice = voices.get(&command.voice_id)?;
+    let processed_text = dictionary.apply(&command.text);
 
-    DefaultPiperInvoker.invoke(&request).map_err(|err| {
-        error!("Speak command failed: {err}");
-        CommandError::from(err)
+    let timestamp = time::OffsetDateTime::now_utc().unix_timestamp();
+    let filename = format!("{}-{timestamp}.wav", voice.id);
+    let output_path = output_dir.join(filename);
+
+    Ok(SpeakRequest {
+        text: processed_text,
+        model_path: PathBuf::from(&voice.model_path),
+        output_path,
+        speaker: None,
+        length_scale: command.length_scale,
     })
+}
+
+pub fn execute_synthesis(
+    app_state: &AppState,
+    command: SpeakCommand,
+) -> Result<SpeakResponse, CommandError> {
+    info!("Synthesising paragraph with voice {}", command.voice_id);
+
+    let request = prepare_request(
+        &command,
+        &app_state.voices,
+        &app_state.dictionary,
+        app_state.output_dir(),
+    )?;
+
+    let response = DefaultPiperInvoker.invoke(&request)?;
+
+    let volume = command.volume.unwrap_or(1.0).clamp(0.0, 1.0);
+    let playback_id = app_state.audio.play_file(&response.output_path, volume)?;
+
+    if let Some(destination) = command.export_path {
+        app_state
+            .audio
+            .export_last_audio(&destination)
+            .map_err(CommandError::from)?;
+    }
+
+    Ok(SpeakResponse {
+        playback_id: Some(playback_id),
+        ..response
+    })
+}
+
+pub fn handle_audio_completion(
+    manager: &AudioManager,
+    app_handle: &tauri::AppHandle,
+    playback_id: u64,
+) {
+    if let Some(sink) = manager.current_sink() {
+        let handle = app_handle.clone();
+        std::thread::spawn(move || {
+            sink.sleep_until_end();
+            if let Err(err) = handle.emit_all("reader://playback-ended", playback_id) {
+                error!("Failed to emit playback event: {err}");
+            }
+        });
+    }
 }
 
 #[cfg(test)]
@@ -282,7 +390,7 @@ with open(args.output_file, 'w', encoding='utf-8') as f:
 "#,
         );
         let request = make_request(&temp, true);
-        let response = speak(request).unwrap();
+        let response = DefaultPiperInvoker.invoke(&request).unwrap();
         assert!(response.duration_ms > 0);
         let output = fs::read_to_string(temp.path().join("output.wav")).unwrap();
         assert!(output.starts_with("WAV:<speak"));
@@ -294,8 +402,11 @@ with open(args.output_file, 'w', encoding='utf-8') as f:
         let temp = TempDir::new().unwrap();
         let _guard = write_mock_piper_script(&temp, "import sys; sys.exit(0)");
         let request = make_request(&temp, false);
-        let error = speak(request).unwrap_err();
-        assert_eq!(error.code, ERROR_VOICE_NOT_FOUND);
+        let error = DefaultPiperInvoker.invoke(&request).unwrap_err();
+        match error {
+            CommandFailure::VoiceNotFound(_) => (),
+            other => panic!("unexpected error: {other:?}"),
+        }
     }
 
     #[test]
@@ -309,9 +420,14 @@ sys.exit(2)
 "#,
         );
         let request = make_request(&temp, true);
-        let error = speak(request).unwrap_err();
-        assert_eq!(error.code, ERROR_PROCESS_FAILED);
-        assert_eq!(error.details.unwrap(), "boom");
+        let error = DefaultPiperInvoker.invoke(&request).unwrap_err();
+        match error {
+            CommandFailure::PiperFailure { status, stderr } => {
+                assert_eq!(status, 2);
+                assert_eq!(stderr, "boom");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
     }
 
     #[test]
@@ -320,8 +436,7 @@ sys.exit(2)
         let _guard = write_mock_piper_script(&temp, "import sys; sys.exit(0)");
         let mut request = make_request(&temp, true);
         request.text = "[pause:???]".into();
-        let error = speak(request).unwrap_err();
-        assert_eq!(error.code, ERROR_INTERNAL);
-        assert!(error.message.contains("Failed to build SSML"));
+        let error = DefaultPiperInvoker.invoke(&request).unwrap_err();
+        assert!(matches!(error, CommandFailure::Other(message) if message.contains("SSML")));
     }
 }

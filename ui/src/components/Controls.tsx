@@ -2,6 +2,7 @@ interface ControlsProps {
   isPlaying: boolean;
   onPlayPause: () => void;
   onNext: () => void;
+  onExport: () => void;
   rate: number;
   pitch: number;
   volume: number;
@@ -17,6 +18,7 @@ const Controls = ({
   isPlaying,
   onPlayPause,
   onNext,
+  onExport,
   rate,
   pitch,
   volume,
@@ -39,6 +41,13 @@ const Controls = ({
         className="rounded-md border border-muted/40 px-4 py-2 text-sm font-medium text-foreground focus-ring"
       >
         Siguiente
+      </button>
+      <button
+        type="button"
+        onClick={onExport}
+        className="rounded-md border border-muted/40 px-4 py-2 text-sm font-medium text-foreground focus-ring"
+      >
+        Exportar WAV
       </button>
     </div>
 
