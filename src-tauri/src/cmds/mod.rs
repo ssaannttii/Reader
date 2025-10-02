@@ -8,5 +8,5 @@ pub use speak::speak;
 
 pub use import_epub::ImportEpubRequest;
 pub use import_pdf::ImportPdfRequest;
-pub use speak::SpeakRequest;
 pub use speak::CommandError;
+pub use speak::SpeakRequest;

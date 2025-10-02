@@ -80,10 +80,8 @@ print(json.dumps({
     #[test]
     fn importer_failure_is_reported() {
         let temp = TempDir::new().unwrap();
-        let _guard = write_mock_importer(
-            &temp,
-            "import sys\nsys.stderr.write('kaput')\nsys.exit(2)",
-        );
+        let _guard =
+            write_mock_importer(&temp, "import sys\nsys.stderr.write('kaput')\nsys.exit(2)");
         let request = sample_request(&temp);
         let error = import_epub(request).unwrap_err();
         assert_eq!(error.code, import_pdf::ERROR_SCRIPT_FAILED);

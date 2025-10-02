@@ -122,7 +122,11 @@ pub(crate) fn run_importer(
         return Err(CommandError::new(
             ERROR_SCRIPT_FAILED,
             format!("Importer exited with status {:?}", output.status.code()),
-            if stderr.is_empty() { None } else { Some(stderr) },
+            if stderr.is_empty() {
+                None
+            } else {
+                Some(stderr)
+            },
         ));
     }
 
@@ -154,10 +158,7 @@ pub(crate) fn run_importer(
         })
         .collect::<Result<Vec<_>, CommandError>>()?;
 
-    let metadata = raw
-        .metadata
-        .map(Value::Object)
-        .unwrap_or(Value::Null);
+    let metadata = raw.metadata.map(Value::Object).unwrap_or(Value::Null);
 
     Ok(ImportResponse {
         document: ImportedDocument {
@@ -244,10 +245,8 @@ print(json.dumps({
     #[test]
     fn importer_error_returns_script_error() {
         let temp = TempDir::new().unwrap();
-        let _guard = write_mock_importer(
-            &temp,
-            "import sys\nsys.stderr.write('fail')\nsys.exit(1)",
-        );
+        let _guard =
+            write_mock_importer(&temp, "import sys\nsys.stderr.write('fail')\nsys.exit(1)");
         let request = sample_request(&temp);
         let error = import_pdf(request).unwrap_err();
         assert_eq!(error.code, ERROR_SCRIPT_FAILED);
