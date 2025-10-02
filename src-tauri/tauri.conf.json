@@ -1,0 +1,15 @@
+{
+  "package": {
+    "productName": "Reader",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "windows": [
+      {
+        "title": "Reader",
+        "width": 1024,
+        "height": 768
+      }
+    ]
+  }
+}

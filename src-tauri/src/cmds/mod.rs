@@ -1,15 +1,12 @@
-//! Command module stubs for the Tauri backend.
-//!
-//! Each subcommand will bridge the UI with platform capabilities such as
-//! Piper synthesis and document importers. Replace the placeholder
-//! functions with real implementations as the MVP evolves.
+pub mod import_epub;
+pub mod import_pdf;
+pub mod speak;
 
-/// Placeholder module for speech synthesis commands.
-pub mod speak {
-    //! Spawn Piper subprocesses and manage streaming playback here.
-}
+pub use import_epub::import_epub;
+pub use import_pdf::import_pdf;
+pub use speak::speak;
 
-/// Placeholder module for document import commands.
-pub mod import {
-    //! Wire Python helpers for EPUB/PDF extraction here.
-}
+pub use import_epub::ImportEpubRequest;
+pub use import_pdf::ImportPdfRequest;
+pub use speak::SpeakRequest;
+pub use speak::CommandError;
