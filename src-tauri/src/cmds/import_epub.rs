@@ -19,6 +19,18 @@ pub fn import_epub(request: ImportEpubRequest) -> Result<ImportResponse, Command
     )
 }
 
+#[tauri::command]
+pub fn import_epub_command(request: ImportEpubRequest) -> Result<Vec<String>, CommandError> {
+    import_epub(request).map(|response| {
+        response
+            .document
+            .sections
+            .into_iter()
+            .map(|section| section.content)
+            .collect()
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -78,16 +90,44 @@ print(json.dumps({
     }
 
     #[test]
-    fn importer_failure_is_reported() {
+    fn import_epub_command_returns_section_content() {
         let temp = TempDir::new().unwrap();
         let _guard = write_mock_importer(
             &temp,
-            "import sys\nsys.stderr.write('kaput')\nsys.exit(2)",
+            r#"import json, sys
+print(json.dumps({
+    "sections": [
+        {"id": "chap1", "content": "Primero"},
+        {"id": "chap2", "content": "Segundo"}
+    ]
+}))
+"#,
         );
+        let request = sample_request(&temp);
+        let sections = import_epub_command(request).unwrap();
+        assert_eq!(sections, vec!["Primero".to_string(), "Segundo".to_string()]);
+    }
+
+    #[test]
+    fn importer_failure_is_reported() {
+        let temp = TempDir::new().unwrap();
+        let _guard =
+            write_mock_importer(&temp, "import sys\nsys.stderr.write('kaput')\nsys.exit(2)");
         let request = sample_request(&temp);
         let error = import_epub(request).unwrap_err();
         assert_eq!(error.code, import_pdf::ERROR_SCRIPT_FAILED);
         assert_eq!(error.details.unwrap(), "kaput");
+    }
+
+    #[test]
+    fn import_epub_command_propagates_errors() {
+        let temp = TempDir::new().unwrap();
+        let _guard =
+            write_mock_importer(&temp, "import sys\nsys.stderr.write('oops')\nsys.exit(5)");
+        let request = sample_request(&temp);
+        let error = import_epub_command(request).unwrap_err();
+        assert_eq!(error.code, import_pdf::ERROR_SCRIPT_FAILED);
+        assert_eq!(error.details.as_deref(), Some("oops"));
     }
 
     #[test]
