@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --color-background: 255 255 255;
+    --color-foreground: 15 23 42;
+    --color-primary: 79 70 229;
+    --color-muted: 148 163 184;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height: 1.5;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --color-background: 15 23 42;
+    --color-foreground: 241 245 249;
+    --color-primary: 99 102 241;
+    --color-muted: 100 116 139;
+  }
+
+  body {
+    min-height: 100vh;
+  }
+}
+
+@layer utilities {
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
