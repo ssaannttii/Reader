@@ -1,4 +1,11 @@
-//! Audio playback abstractions.
+//! Herramientas de reproducción de audio para el backend Tauri.
 //!
-//! Use `cpal` or `rodio` to stream synthesized WAV buffers. The module
-//! definition stays empty until audio routing is implemented.
+//! Este módulo expone [`AudioPlayer`], un contenedor thread-safe que gestiona un
+//! `rodio::OutputStream` y reproduce ficheros locales mediante los métodos
+//! [`AudioPlayer::play`], [`AudioPlayer::stop`] e [`AudioPlayer::is_playing`].
+//! El reproductor es inyectable, por lo que sus pruebas pueden utilizar un
+//! backend simulado que evite depender de un dispositivo real.
+
+pub mod player;
+
+pub use player::{AudioEngine, AudioPlayer, AudioPlayerError, ManagedSink, RodioEngine};

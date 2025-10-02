@@ -4,6 +4,9 @@
 //! Piper synthesis and document importers. Replace the placeholder
 //! functions with real implementations as the MVP evolves.
 
+/// Audio related commands that wrap [`crate::audio::AudioPlayer`].
+pub mod audio;
+
 /// Placeholder module for speech synthesis commands.
 pub mod speak {
     //! Spawn Piper subprocesses and manage streaming playback here.
